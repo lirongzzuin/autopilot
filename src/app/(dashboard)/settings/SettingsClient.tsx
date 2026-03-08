@@ -62,15 +62,8 @@ export function SettingsClient({ profile, connectedServices, userId }: SettingsC
     return connectedServices.some(s => s.service === serviceId && s.is_active);
   }
 
-  function handleConnect(service: typeof INTEGRATION_LIST[0]) {
-    // OAuth 연동 (실제 구현 시 OAuth flow 트리거)
-    const urls: Record<string, string> = {
-      google: `/api/oauth/google?service=${service.id}`,
-      slack: `/api/oauth/slack`,
-      notion: `/api/oauth/notion`,
-      jira: `/api/oauth/jira`,
-    };
-    window.location.href = urls[service.authType] ?? '#';
+  function handleConnect() {
+    toast({ title: '서비스 연동 기능은 현재 준비 중입니다. 빠른 시일 내에 제공하겠습니다.' });
   }
 
   async function handleDisconnect(serviceId: ConnectedServiceType) {
@@ -129,7 +122,7 @@ export function SettingsClient({ profile, connectedServices, userId }: SettingsC
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-primary" />
-            연동 서비스 관리
+            연동 서비스 관리 <span className="text-xs font-normal text-slate-400 ml-2">곧 지원 예정</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -159,9 +152,9 @@ export function SettingsClient({ profile, connectedServices, userId }: SettingsC
                     해제
                   </Button>
                 ) : (
-                  <Button size="sm" onClick={() => handleConnect(service)}>
+                  <Button size="sm" variant="outline" onClick={() => handleConnect()}>
                     <Link className="w-4 h-4" />
-                    연결
+                    준비 중
                   </Button>
                 )}
               </div>

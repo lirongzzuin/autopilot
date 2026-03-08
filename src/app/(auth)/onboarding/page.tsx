@@ -10,7 +10,7 @@ import {
   Chrome, MessageSquare, Layers, Cloud
 } from 'lucide-react';
 
-const STEPS = ['업무 선택', 'AI 모델', '서비스 연결', '추천 자동화'];
+const STEPS = ['업무 선택', 'AI 모델', '관심 서비스', '추천 자동화'];
 
 const WORK_TYPES = [
   { id: 'email', icon: Mail, label: '이메일 관리', desc: '자동 분류 & 요약' },
@@ -34,9 +34,9 @@ const AI_OPTIONS = [
     id: 'byok',
     icon: Brain,
     title: '내 API 키 사용 (BYOK)',
-    desc: 'Claude, GPT, Gemini API 키를 직접 연결. 크레딧 걱정 없이 무제한 사용.',
-    badge: '절약',
-    pros: ['무제한 사용', '최신 모델 선택', '직접 비용 관리'],
+    desc: 'Claude, GPT, Gemini API 키를 직접 연결. 사용량에 따라 AI 제공사에 직접 결제.',
+    badge: '투명',
+    pros: ['사용한 만큼만 결제', '최신 모델 선택', '비용 직접 관리'],
   },
 ];
 
@@ -54,25 +54,25 @@ const RECOMMENDED_AUTOMATIONS = [
     id: 'email_digest',
     icon: Mail,
     title: '이메일 일일 다이제스트',
-    desc: '매일 오전 9시, 중요 이메일을 Slack으로 요약 발송',
+    desc: '매일 오전 9시, 전날 받은 이메일 요약을 이메일로 발송',
     trigger: '매일 오전 9시',
-    action: 'Slack 전송',
+    action: '다이제스트 메일',
   },
   {
     id: 'urgent_alert',
     icon: Bell,
-    title: '긴급 이메일 실시간 알림',
-    desc: '긴급 이메일 수신 시 즉시 Slack DM으로 알림',
+    title: '긴급 이메일 알림',
+    desc: '긴급으로 분류된 이메일 수신 시 알림 센터에 즉시 표시',
     trigger: '긴급 이메일 수신',
-    action: 'Slack DM',
+    action: '알림 전송',
   },
   {
-    id: 'meeting_notes',
+    id: 'auto_classify',
     icon: FileText,
-    title: '회의록 자동 생성',
-    desc: 'Google Meet 종료 후 AI가 회의록을 Notion에 자동 저장',
-    trigger: '회의 종료',
-    action: 'Notion 저장',
+    title: 'AI 이메일 자동 분류',
+    desc: '수신 이메일을 AI가 우선순위별로 분류하고 3줄 요약 생성',
+    trigger: '이메일 수신',
+    action: 'AI 분류 + 요약',
   },
 ];
 
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white">
             {step === 0 && '어떤 업무를 자동화하고 싶으세요?'}
             {step === 1 && 'AI 모델을 선택하세요'}
-            {step === 2 && '사용 중인 도구를 연결하세요'}
+            {step === 2 && '연동을 원하는 서비스를 선택하세요'}
             {step === 3 && '추천 자동화를 활성화하세요'}
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
@@ -226,30 +226,34 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3: 서비스 연결 */}
+        {/* Step 3: 관심 서비스 */}
         {step === 2 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {SERVICES.map((service) => {
-              const connected = connectedServices.includes(service.id);
-              const Icon = service.icon;
-              return (
-                <button
-                  key={service.id}
-                  onClick={() => toggleService(service.id)}
-                  className={`p-5 rounded-2xl border-2 text-center transition-all ${
-                    connected
-                      ? 'border-primary bg-primary/5'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/30'
-                  }`}
-                >
-                  <Icon className={`w-8 h-8 mx-auto mb-2 ${service.color}`} />
-                  <div className="font-semibold text-sm text-slate-900 dark:text-white">{service.label}</div>
-                  {connected && (
-                    <div className="mt-2 text-xs text-primary font-semibold">연결됨 ✓</div>
-                  )}
-                </button>
-              );
-            })}
+          <div>
+            <p className="text-sm text-slate-400 text-center mb-4">향후 연동을 원하는 서비스를 알려주세요. 우선순위에 반영됩니다.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {SERVICES.map((service) => {
+                const connected = connectedServices.includes(service.id);
+                const Icon = service.icon;
+                return (
+                  <button
+                    key={service.id}
+                    onClick={() => toggleService(service.id)}
+                    className={`p-5 rounded-2xl border-2 text-center transition-all ${
+                      connected
+                        ? 'border-primary bg-primary/5'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/30'
+                    }`}
+                  >
+                    <Icon className={`w-8 h-8 mx-auto mb-2 ${service.color}`} />
+                    <div className="font-semibold text-sm text-slate-900 dark:text-white">{service.label}</div>
+                    <div className="text-[10px] text-slate-400 mt-1">연동 준비 중</div>
+                    {connected && (
+                      <div className="mt-1 text-xs text-primary font-semibold">선택됨 ✓</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

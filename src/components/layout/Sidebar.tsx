@@ -17,6 +17,7 @@ import {
   LogOut,
   BarChart3,
   MessageSquare,
+  HelpCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,7 @@ const navItems = [
 
 const bottomItems = [
   { href: '/settings/snippets', label: '이메일 스니펫', icon: MessageSquare },
+  { href: '/help', label: '도움말', icon: HelpCircle },
   { href: '/settings', label: '설정', icon: Settings },
   { href: '/settings/billing', label: '결제', icon: CreditCard },
 ];
