@@ -47,8 +47,17 @@ export async function PUT(request: NextRequest) {
   if (!user) return ApiError.unauthorized();
 
   const body = await request.json();
-  const { id, ...updates } = body;
+  const { id, name, is_active, conditions, channels } = body;
   if (!id) return ApiError.badRequest('id가 필요합니다');
+
+  // Only allow specific fields to be updated
+  const updates: Record<string, unknown> = {};
+  if (typeof name === 'string') updates.name = name;
+  if (typeof is_active === 'boolean') updates.is_active = is_active;
+  if (Array.isArray(conditions)) updates.conditions = conditions;
+  if (Array.isArray(channels)) updates.channels = channels;
+
+  if (Object.keys(updates).length === 0) return ApiError.badRequest('업데이트할 내용이 없습니다');
 
   const { error } = await supabase.from('alerts')
     .update(updates)

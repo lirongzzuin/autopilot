@@ -18,11 +18,7 @@ interface CommandItem {
   keywords?: string[];
 }
 
-interface CommandPaletteProps {
-  onSignOut?: () => void;
-}
-
-export function CommandPalette({ onSignOut }: CommandPaletteProps) {
+export function CommandPalette() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -46,7 +42,7 @@ export function CommandPalette({ onSignOut }: CommandPaletteProps) {
     // 빠른 액션
     { id: 'action-new-automation', label: '새 자동화 만들기', description: '자연어로 자동화 생성', icon: <Plus className="w-4 h-4" />, category: '액션', action: () => router.push('/automations/new'), keywords: ['create', 'new', '새로', '만들기'] },
     { id: 'action-new-document', label: '새 문서 작성', description: 'AI로 문서 생성', icon: <FileText className="w-4 h-4" />, category: '액션', action: () => router.push('/documents'), keywords: ['write', '작성', '생성'] },
-    { id: 'action-signout', label: '로그아웃', description: '계정에서 로그아웃', icon: <LogOut className="w-4 h-4" />, category: '액션', action: () => onSignOut?.(), keywords: ['logout', '로그아웃'] },
+    { id: 'action-signout', label: '로그아웃', description: '계정에서 로그아웃', icon: <LogOut className="w-4 h-4" />, category: '액션', action: () => { import('@/lib/supabase/client').then(m => m.createClient().auth.signOut().then(() => router.push('/login'))); }, keywords: ['logout', '로그아웃'] },
   ];
 
   const filteredCommands = query.trim()

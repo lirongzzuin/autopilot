@@ -599,4 +599,26 @@ Upstash Redis 슬라이딩 윈도우 방식으로 API 남용을 방지합니다.
 
 ---
 
+## 최근 개선 사항 (v1.1)
+
+### 보안 강화
+- **Alerts API PUT 입력 검증 화이트리스트**: 허용된 필드(name, is_active, conditions, channels)만 업데이트 가능하도록 제한하여 Mass Assignment 취약점 방지
+- **Inbox API 입력 검증 강화**: `read`, `snooze` 엔드포인트에 타입 검증, ISO 날짜 유효성 검사, 과거 시점 스누즈 방지 로직 추가
+
+### UX / 안정성 개선
+- **키보드 단축키 버그 수정**: `?` 키가 input/textarea 내에서도 단축키 모달을 토글하던 문제 해결 — 입력 필드 체크를 우선 처리하도록 순서 변경
+- **Optimistic UI 롤백**: 읽음 처리(`markAsRead`), 별표 토글(`toggleStar`)에서 API 실패 시 이전 상태로 자동 롤백 + 토스트 에러 메시지 표시
+- **AI 기능 에러 핸들링**: `analyzeEmails`, `generateDraft`, `generateInstantReplies`에 try/catch + Rate Limit(429) 안내 + 네트워크 오류 피드백 추가
+- **Toast variant 통일**: alerts 페이지의 `variant: 'destructive'`를 `variant: 'error'`로 수정 (toast 컴포넌트 지원 variant와 일치)
+- **대시보드 이메일 링크 수정**: 존재하지 않는 `/inbox/[id]` 경로를 `/inbox`로 변경
+
+### 기능 보완
+- **문서 페이지 DB 연동**: 하드코딩된 예시 데이터를 Supabase 실시간 CRUD로 교체 — 생성, 저장, 복사, 삭제 모두 DB 반영
+- **알림센터 읽음 상태 영속화**: `markAllRead` 시 읽은 알림 ID를 localStorage에 저장 (최근 100개), 재방문 시에도 읽음 상태 유지
+- **Alerts RSS 소스 추가**: 알림 규칙의 소스 옵션에 `rss` (RSS 피드) 추가
+- **결제 상태 `processing` 표시**: BillingClient의 statusBadge에 누락된 `processing` 상태 추가
+- **CommandPalette 로그아웃 수정**: 미사용 `onSignOut` prop 제거, 컴포넌트 내에서 직접 Supabase signOut 호출로 변경
+
+---
+
 *AutoPilot — 반복 업무는 AI에게, 중요한 일에 집중하세요.*

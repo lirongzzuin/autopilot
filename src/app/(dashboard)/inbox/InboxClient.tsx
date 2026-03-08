@@ -132,7 +132,14 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailIds: unanalyzed.map(e => e.id) }),
       });
-      if (res.ok) toast({ title: `${unanalyzed.length}개 이메일 분석 완료` });
+      if (res.ok) {
+        const data = await res.json();
+        toast({ title: `${data.analyzed ?? unanalyzed.length}개 이메일 분석 완료`, variant: 'success' });
+      } else {
+        toast({ title: '이메일 분석에 실패했습니다', variant: 'error' });
+      }
+    } catch {
+      toast({ title: '네트워크 오류가 발생했습니다', variant: 'error' });
     } finally {
       setAnalyzing(false);
     }
@@ -148,8 +155,14 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailId: email.id }),
       });
+      if (!res.ok) {
+        toast({ title: res.status === 429 ? '요청이 너무 빠릅니다. 잠시 후 다시 시도하세요' : '답장 초안 생성에 실패했습니다', variant: 'error' });
+        return;
+      }
       const data = await res.json();
       setDraftReply(data.draft);
+    } catch {
+      toast({ title: '네트워크 오류가 발생했습니다', variant: 'error' });
     } finally {
       setDraftLoading(false);
     }
@@ -165,8 +178,14 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailId: email.id }),
       });
+      if (!res.ok) {
+        toast({ title: res.status === 429 ? '요청이 너무 빠릅니다. 잠시 후 다시 시도하세요' : '즉시 답장 생성에 실패했습니다', variant: 'error' });
+        return;
+      }
       const data = await res.json();
       setInstantReplies(data.replies ?? []);
+    } catch {
+      toast({ title: '네트워크 오류가 발생했습니다', variant: 'error' });
     } finally {
       setInstantLoading(false);
     }
@@ -174,22 +193,39 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
 
   async function markAsRead(email: EmailItem, isRead: boolean) {
     setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: isRead } : e));
-    await fetch('/api/inbox/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailId: email.id, isRead }),
-    });
-    toast({ title: isRead ? '읽음으로 표시됨' : '읽지 않음으로 표시됨' });
+    try {
+      const res = await fetch('/api/inbox/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailId: email.id, isRead }),
+      });
+      if (!res.ok) {
+        setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: !isRead } : e));
+        toast({ title: '상태 변경에 실패했습니다', variant: 'error' });
+        return;
+      }
+      toast({ title: isRead ? '읽음으로 표시됨' : '읽지 않음으로 표시됨' });
+    } catch {
+      setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: !isRead } : e));
+      toast({ title: '네트워크 오류가 발생했습니다', variant: 'error' });
+    }
   }
 
   async function toggleStar(email: EmailItem) {
     const newVal = !email.is_starred;
     setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_starred: newVal } : e));
-    await fetch('/api/inbox/star', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailId: email.id, isStarred: newVal }),
-    });
+    try {
+      const res = await fetch('/api/inbox/star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailId: email.id, isStarred: newVal }),
+      });
+      if (!res.ok) {
+        setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_starred: !newVal } : e));
+      }
+    } catch {
+      setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_starred: !newVal } : e));
+    }
   }
 
   async function snoozeEmail(email: EmailItem, snoozeUntil: Date) {
@@ -228,10 +264,7 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-      setShowShortcuts(prev => !prev);
-      return;
-    }
+    // Escape는 어디서든 동작
     if (e.key === 'Escape') {
       if (showShortcuts) { setShowShortcuts(false); return; }
       if (showSnooze) { setShowSnooze(false); return; }
@@ -239,9 +272,15 @@ export function InboxClient({ emails: initialEmails, userId, focusMode: initialF
       setSelectedIndex(-1);
       return;
     }
-    if (document.activeElement === searchRef.current) return;
-    if ((document.activeElement as HTMLElement)?.tagName === 'INPUT') return;
-    if ((document.activeElement as HTMLElement)?.tagName === 'TEXTAREA') return;
+
+    // Input/Textarea 내에서는 단축키 비활성
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+      setShowShortcuts(prev => !prev);
+      return;
+    }
 
     switch (e.key) {
       case 'j': case 'ArrowDown':

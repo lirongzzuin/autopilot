@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { FileText, Plus, Wand2, Download, Trash2, Edit, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Plus, Wand2, Trash2, Edit, Copy, Loader2, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
+import { timeAgo } from '@/lib/utils';
 
 const TEMPLATE_CATEGORIES = [
   { id: 'report', label: '보고서', icon: '📊' },
@@ -13,19 +15,46 @@ const TEMPLATE_CATEGORIES = [
   { id: 'invoice', label: '인보이스', icon: '🧾' },
 ];
 
-const EXAMPLE_DOCS = [
-  { id: '1', title: '2026년 3월 주간 업무 보고서', category: 'report', updatedAt: '2시간 전' },
-  { id: '2', title: '프로젝트 A 킥오프 회의록', category: 'meeting', updatedAt: '어제' },
-  { id: '3', title: '신규 서비스 제안서 초안', category: 'proposal', updatedAt: '3일 전' },
-];
+interface Document {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  is_template: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function DocumentsPage() {
+  const { toast } = useToast();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
-  const [search, setSearch] = useState('');
   const [generating, setGenerating] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [generatedDoc, setGeneratedDoc] = useState('');
   const [showGenerator, setShowGenerator] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  async function fetchDocuments() {
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('documents')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      setDocuments(data ?? []);
+    } catch {
+      // Silently fail - empty state will show
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function generateDocument() {
     if (!prompt) return;
@@ -34,13 +63,81 @@ export default function DocumentsPage() {
       const res = await fetch('/api/documents/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, category: activeCategory }),
+        body: JSON.stringify({ prompt, category: activeCategory === 'all' ? 'general' : activeCategory }),
       });
+      if (!res.ok) {
+        toast({ title: '문서 생성에 실패했습니다', variant: 'error' });
+        return;
+      }
       const data = await res.json();
       setGeneratedDoc(data.content ?? '문서 생성 실패');
+    } catch {
+      toast({ title: '네트워크 오류가 발생했습니다', variant: 'error' });
     } finally {
       setGenerating(false);
     }
+  }
+
+  async function saveDocument() {
+    if (!generatedDoc) return;
+    setSaving(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const title = prompt.slice(0, 50) || '새 문서';
+      const category = activeCategory === 'all' ? 'general' : activeCategory;
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({ title, category, content: generatedDoc })
+        .select()
+        .single();
+      if (!error && data) {
+        setDocuments(prev => [data, ...prev]);
+        setGeneratedDoc('');
+        setPrompt('');
+        setShowGenerator(false);
+        toast({ title: '문서가 저장되었습니다', variant: 'success' });
+      } else {
+        toast({ title: '저장에 실패했습니다', variant: 'error' });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function copyDocument(content: string) {
+    navigator.clipboard.writeText(content);
+    toast({ title: '클립보드에 복사됨' });
+  }
+
+  async function deleteDocument(id: string) {
+    if (!confirm('이 문서를 삭제하시겠습니까?')) return;
+    const prev = documents;
+    setDocuments(documents.filter(d => d.id !== id));
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { error } = await supabase.from('documents').delete().eq('id', id);
+      if (error) {
+        setDocuments(prev);
+        toast({ title: '삭제에 실패했습니다', variant: 'error' });
+      } else {
+        toast({ title: '문서가 삭제되었습니다' });
+      }
+    } catch {
+      setDocuments(prev);
+      toast({ title: '네트워크 오류', variant: 'error' });
+    }
+  }
+
+  const filteredDocs = documents.filter(d => activeCategory === 'all' || d.category === activeCategory);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
   }
 
   return (
@@ -101,8 +198,21 @@ export default function DocumentsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">생성된 문서</span>
                   <div className="flex gap-2">
-                    <button className="text-xs text-primary hover:underline">복사</button>
-                    <button className="text-xs text-primary hover:underline">저장</button>
+                    <button
+                      onClick={() => copyDocument(generatedDoc)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      복사
+                    </button>
+                    <button
+                      onClick={saveDocument}
+                      disabled={saving}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                      저장
+                    </button>
                   </div>
                 </div>
                 <pre className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto">
@@ -144,8 +254,15 @@ export default function DocumentsPage() {
           <span className="font-semibold text-sm">새 문서 만들기</span>
         </button>
 
-        {/* 기존 문서 목록 */}
-        {EXAMPLE_DOCS.map((doc) => {
+        {filteredDocs.length === 0 && documents.length === 0 && (
+          <div className="col-span-2 flex flex-col items-center justify-center py-12 text-center text-slate-400">
+            <FileText className="w-12 h-12 mb-3 text-slate-300" />
+            <p className="font-semibold text-slate-500">문서가 없습니다</p>
+            <p className="text-sm mt-1">AI 문서 생성기로 첫 문서를 만들어보세요</p>
+          </div>
+        )}
+
+        {filteredDocs.map((doc) => {
           const cat = TEMPLATE_CATEGORIES.find(c => c.id === doc.category);
           return (
             <Card key={doc.id} className="hover:shadow-md transition-shadow group">
@@ -156,15 +273,24 @@ export default function DocumentsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate">{doc.title}</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{doc.updatedAt} 수정</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{timeAgo(doc.updated_at)} 수정</p>
                   </div>
                 </div>
+                {doc.content && (
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-2">{doc.content.slice(0, 100)}</p>
+                )}
                 <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
-                    <Edit className="w-3.5 h-3.5" />
-                    편집
+                  <button
+                    onClick={() => copyDocument(doc.content)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    복사
                   </button>
-                  <button className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors text-slate-500">
+                  <button
+                    onClick={() => deleteDocument(doc.id)}
+                    className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors text-slate-500"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

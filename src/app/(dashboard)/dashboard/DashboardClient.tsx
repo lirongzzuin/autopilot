@@ -176,7 +176,7 @@ export function DashboardClient({ profile, recentAutomations, recentEmails, week
                   return (
                     <Link
                       key={email.id}
-                      href={`/inbox/${email.id}`}
+                      href="/inbox"
                       className="flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                     >
                       <div className="flex-1 min-w-0">

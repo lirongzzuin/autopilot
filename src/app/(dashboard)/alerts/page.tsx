@@ -12,6 +12,7 @@ const SOURCE_ICONS: Record<string, React.ReactNode> = {
   slack: <MessageSquare className="w-4 h-4" />,
   jira: <Zap className="w-4 h-4" />,
   website: <Globe className="w-4 h-4" />,
+  rss: <Bell className="w-4 h-4" />,
 };
 
 interface Alert {
@@ -43,7 +44,7 @@ export default function AlertsPage() {
       const data = await res.json();
       setAlerts(data.alerts ?? []);
     } catch {
-      toast({ title: '알림 로드 실패', variant: 'destructive' });
+      toast({ title: '알림 로드 실패', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -72,10 +73,10 @@ export default function AlertsPage() {
         setNewAlert({ name: '', source: 'email', keyword: '' });
         toast({ title: '알림 규칙이 생성되었습니다', variant: 'success' });
       } else {
-        toast({ title: '알림 생성 실패', variant: 'destructive' });
+        toast({ title: '알림 생성 실패', variant: 'error' });
       }
     } catch {
-      toast({ title: '알림 생성 실패', variant: 'destructive' });
+      toast({ title: '알림 생성 실패', variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -91,11 +92,11 @@ export default function AlertsPage() {
       });
       if (!res.ok) {
         setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: isActive } : a));
-        toast({ title: '상태 변경 실패', variant: 'destructive' });
+        toast({ title: '상태 변경 실패', variant: 'error' });
       }
     } catch {
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: isActive } : a));
-      toast({ title: '상태 변경 실패', variant: 'destructive' });
+      toast({ title: '상태 변경 실패', variant: 'error' });
     }
   }
 
@@ -113,11 +114,11 @@ export default function AlertsPage() {
         toast({ title: '알림 규칙이 삭제되었습니다' });
       } else {
         setAlerts(prev);
-        toast({ title: '삭제 실패', variant: 'destructive' });
+        toast({ title: '삭제 실패', variant: 'error' });
       }
     } catch {
       setAlerts(prev);
-      toast({ title: '삭제 실패', variant: 'destructive' });
+      toast({ title: '삭제 실패', variant: 'error' });
     }
   }
 
@@ -193,6 +194,7 @@ export default function AlertsPage() {
                   <option value="slack">Slack</option>
                   <option value="jira">Jira</option>
                   <option value="website">웹사이트</option>
+                  <option value="rss">RSS 피드</option>
                 </select>
               </div>
             </div>

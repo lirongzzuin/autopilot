@@ -79,11 +79,12 @@ export function BillingClient({ profile, subscription, billingHistory, userId }:
     }
   }
 
-  const statusBadge = {
-    active: { label: '활성', variant: 'success' as const },
-    past_due: { label: '결제 실패', variant: 'error' as const },
-    cancelled: { label: '취소됨', variant: 'warning' as const },
-    trialing: { label: '체험 중', variant: 'default' as const },
+  const statusBadge: Record<string, { label: string; variant: 'success' | 'error' | 'warning' | 'default' }> = {
+    active: { label: '활성', variant: 'success' },
+    past_due: { label: '결제 실패', variant: 'error' },
+    cancelled: { label: '취소됨', variant: 'warning' },
+    trialing: { label: '체험 중', variant: 'default' },
+    processing: { label: '처리 중', variant: 'warning' },
   };
 
   return (

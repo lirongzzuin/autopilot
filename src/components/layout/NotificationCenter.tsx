@@ -56,7 +56,11 @@ export function NotificationCenter({ userId, isOpen, onClose }: NotificationCent
     fetch('/api/notifications')
       .then((res) => res.json())
       .then((data) => {
-        setNotifications(data.notifications ?? []);
+        const readIds: string[] = (() => { try { return JSON.parse(localStorage.getItem('read_notifications') ?? '[]'); } catch { return []; } })();
+        setNotifications((data.notifications ?? []).map((n: Notification) => ({
+          ...n,
+          is_read: n.is_read || readIds.includes(n.id),
+        })));
       })
       .catch(() => {
         setNotifications([]);
@@ -84,6 +88,13 @@ export function NotificationCenter({ userId, isOpen, onClose }: NotificationCent
 
   function markAllRead() {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    // 읽은 알림 ID를 localStorage에 저장
+    try {
+      const readIds = notifications.map(n => n.id);
+      const existing = JSON.parse(localStorage.getItem('read_notifications') ?? '[]');
+      const merged = [...new Set([...existing, ...readIds])].slice(-100); // 최근 100개만 유지
+      localStorage.setItem('read_notifications', JSON.stringify(merged));
+    } catch { /* localStorage 불가 시 무시 */ }
   }
 
   return (
