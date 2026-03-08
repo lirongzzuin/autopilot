@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   ai_credits_total INTEGER DEFAULT 1000,
   onboarding_completed BOOLEAN DEFAULT FALSE,
   marketing_consent BOOLEAN DEFAULT FALSE,
+  focus_mode BOOLEAN DEFAULT FALSE,
+  dnd_until TIMESTAMPTZ,
   webhook_secret TEXT, -- 외부 웹훅 수신용 시크릿 키
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -93,6 +95,8 @@ CREATE TABLE IF NOT EXISTS email_items (
   ai_draft_reply TEXT,
   is_read BOOLEAN DEFAULT FALSE,
   snoozed_until TIMESTAMPTZ,
+  ai_category TEXT DEFAULT 'other' CHECK (ai_category IN ('team', 'vip', 'newsletter', 'notification', 'other')),
+  is_starred BOOLEAN DEFAULT FALSE,
   received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, external_id)
@@ -173,6 +177,27 @@ CREATE TABLE IF NOT EXISTS email_snippets (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 차단된 발신자
+CREATE TABLE IF NOT EXISTS blocked_senders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  sender_email TEXT NOT NULL,
+  sender_name TEXT,
+  reason TEXT, -- 'manual' | 'spam'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, sender_email)
+);
+
+-- 이메일 리마인더
+CREATE TABLE IF NOT EXISTS email_reminders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  email_id UUID REFERENCES email_items(id) ON DELETE CASCADE NOT NULL,
+  remind_at TIMESTAMPTZ NOT NULL,
+  is_completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- AI 사용량 로그
 CREATE TABLE IF NOT EXISTS ai_usage_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -203,6 +228,8 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_snippets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blocked_senders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_reminders ENABLE ROW LEVEL SECURITY;
 
 -- user_profiles RLS
 CREATE POLICY "users_own_profile" ON user_profiles
@@ -256,6 +283,14 @@ CREATE POLICY "users_own_ai_logs" ON ai_usage_logs
 CREATE POLICY "users_own_snippets" ON email_snippets
   FOR ALL USING (auth.uid() = user_id);
 
+-- blocked_senders RLS
+CREATE POLICY "users_own_blocked_senders" ON blocked_senders
+  FOR ALL USING (auth.uid() = user_id);
+
+-- email_reminders RLS
+CREATE POLICY "users_own_reminders" ON email_reminders
+  FOR ALL USING (auth.uid() = user_id);
+
 -- =====================
 -- 인덱스
 -- =====================
@@ -270,6 +305,10 @@ CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_date ON ai_usage_logs(user_id,
 CREATE INDEX IF NOT EXISTS idx_billing_history_user ON billing_history(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status) WHERE status IN ('active', 'processing');
 CREATE INDEX IF NOT EXISTS idx_subscriptions_period_end ON subscriptions(current_period_end) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_blocked_senders_user ON blocked_senders(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_reminders_user_date ON email_reminders(user_id, remind_at) WHERE is_completed = FALSE;
+CREATE INDEX IF NOT EXISTS idx_email_items_category ON email_items(user_id, ai_category);
+CREATE INDEX IF NOT EXISTS idx_email_items_starred ON email_items(user_id) WHERE is_starred = TRUE;
 
 -- =====================
 -- 함수: 신규 사용자 프로필 자동 생성

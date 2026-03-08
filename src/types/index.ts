@@ -22,6 +22,9 @@ export interface UserProfile {
   ai_credits_total: number;
   onboarding_completed: boolean;
   marketing_consent: boolean;
+  focus_mode: boolean;
+  dnd_until: string | null;
+  webhook_secret: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +43,7 @@ export type AIModel =
   | 'gemini-2.5-pro';
 
 export interface AIRequest {
-  task: 'email_summary' | 'email_classify' | 'email_draft' | 'document_generate' | 'workflow_parse' | 'translate' | 'general';
+  task: 'email_summary' | 'email_classify' | 'email_draft' | 'email_instant_reply' | 'document_generate' | 'workflow_parse' | 'translate' | 'general';
   input: string;
   userId: string;
   systemPrompt?: string;
@@ -166,6 +169,8 @@ export interface EmailItem {
   ai_draft_reply: string | null;
   is_read: boolean;
   snoozed_until: string | null;
+  ai_category: 'team' | 'vip' | 'newsletter' | 'notification' | 'other';
+  is_starred: boolean;
   received_at: string;
   created_at: string;
 }
@@ -178,7 +183,7 @@ export interface Subscription {
   id: string;
   user_id: string;
   plan: PlanType;
-  status: 'active' | 'past_due' | 'cancelled' | 'trialing';
+  status: 'active' | 'past_due' | 'cancelled' | 'trialing' | 'processing';
   billing_key: string | null;
   customer_key: string;
   current_period_start: string;
@@ -300,5 +305,29 @@ export interface ConnectedService {
   account_email: string | null;
   account_name: string | null;
   is_active: boolean;
+  created_at: string;
+}
+
+// ============================
+// 이메일 카테고리 & 차단/리마인더 타입
+// ============================
+
+export type EmailCategory = 'team' | 'vip' | 'newsletter' | 'notification' | 'other';
+
+export interface BlockedSender {
+  id: string;
+  user_id: string;
+  sender_email: string;
+  sender_name: string | null;
+  reason: 'manual' | 'spam';
+  created_at: string;
+}
+
+export interface EmailReminder {
+  id: string;
+  user_id: string;
+  email_id: string;
+  remind_at: string;
+  is_completed: boolean;
   created_at: string;
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Bell, Plus, Toggle, Trash2, Mail, MessageSquare, Zap, Globe } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, Plus, Trash2, Mail, MessageSquare, Zap, Globe, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/toast';
 
 const SOURCE_ICONS: Record<string, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
@@ -13,49 +14,144 @@ const SOURCE_ICONS: Record<string, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
 };
 
-const EXAMPLE_ALERTS = [
-  {
-    id: '1',
-    name: '긴급 키워드 이메일 알림',
-    source: 'email' as const,
-    conditions: [{ type: 'keyword', value: '긴급, URGENT, 즉시' }],
-    channels: ['slack', 'in_app'],
-    is_active: true,
-    last_triggered: '5분 전',
-  },
-  {
-    id: '2',
-    name: '클라이언트 이메일 모니터링',
-    source: 'email' as const,
-    conditions: [{ type: 'sender', value: '@client.com' }],
-    channels: ['in_app'],
-    is_active: true,
-    last_triggered: '1시간 전',
-  },
-  {
-    id: '3',
-    name: '경쟁사 뉴스 모니터링',
-    source: 'website' as const,
-    conditions: [{ type: 'keyword', value: '경쟁사명, 신제품' }],
-    channels: ['email'],
-    is_active: false,
-    last_triggered: '어제',
-  },
-];
+interface Alert {
+  id: string;
+  name: string;
+  source: string;
+  conditions: any[];
+  channels: any[];
+  is_active: boolean;
+  last_triggered_at: string | null;
+  created_at: string;
+}
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState(EXAMPLE_ALERTS);
+  const { toast } = useToast();
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newAlert, setNewAlert] = useState({ name: '', source: 'email', keyword: '' });
 
-  function toggleAlert(id: string) {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: !a.is_active } : a));
+  useEffect(() => {
+    fetchAlerts();
+  }, []);
+
+  async function fetchAlerts() {
+    try {
+      const res = await fetch('/api/alerts');
+      const data = await res.json();
+      setAlerts(data.alerts ?? []);
+    } catch {
+      toast({ title: '알림 로드 실패', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function deleteAlert(id: string) {
-    if (confirm('이 알림 규칙을 삭제하시겠습니까?')) {
-      setAlerts(prev => prev.filter(a => a.id !== id));
+  async function createAlert() {
+    if (!newAlert.name.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAlert.name,
+          source: newAlert.source,
+          conditions: newAlert.keyword
+            ? [{ type: 'keyword', value: newAlert.keyword, operator: 'contains' }]
+            : [],
+          channels: [{ type: 'in_app', config: {} }],
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setAlerts(prev => [created, ...prev]);
+        setShowForm(false);
+        setNewAlert({ name: '', source: 'email', keyword: '' });
+        toast({ title: '알림 규칙이 생성되었습니다', variant: 'success' });
+      } else {
+        toast({ title: '알림 생성 실패', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: '알림 생성 실패', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
+  }
+
+  async function toggleAlert(id: string, isActive: boolean) {
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: !isActive } : a));
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_active: !isActive }),
+      });
+      if (!res.ok) {
+        setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: isActive } : a));
+        toast({ title: '상태 변경 실패', variant: 'destructive' });
+      }
+    } catch {
+      setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_active: isActive } : a));
+      toast({ title: '상태 변경 실패', variant: 'destructive' });
+    }
+  }
+
+  async function deleteAlert(id: string) {
+    if (!confirm('이 알림 규칙을 삭제하시겠습니까?')) return;
+    const prev = alerts;
+    setAlerts(alerts.filter(a => a.id !== id));
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        toast({ title: '알림 규칙이 삭제되었습니다' });
+      } else {
+        setAlerts(prev);
+        toast({ title: '삭제 실패', variant: 'destructive' });
+      }
+    } catch {
+      setAlerts(prev);
+      toast({ title: '삭제 실패', variant: 'destructive' });
+    }
+  }
+
+  function formatLastTriggered(dateStr: string | null): string {
+    if (!dateStr) return '없음';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return '방금 전';
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay === 1) return '어제';
+    return `${diffDay}일 전`;
+  }
+
+  function formatConditions(conditions: any[]): string {
+    if (!conditions || conditions.length === 0) return '없음';
+    return conditions.map(c => c.value).join(', ');
+  }
+
+  function formatChannels(channels: any[]): string {
+    if (!channels || channels.length === 0) return '없음';
+    return channels.map(c => typeof c === 'string' ? c : c.type).join(', ');
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
   }
 
   return (
@@ -111,20 +207,10 @@ export default function AlertsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>취소</Button>
-              <Button size="sm" onClick={() => {
-                if (!newAlert.name) return;
-                setAlerts(prev => [...prev, {
-                  id: Date.now().toString(),
-                  name: newAlert.name,
-                  source: newAlert.source as 'email',
-                  conditions: [{ type: 'keyword', value: newAlert.keyword }],
-                  channels: ['in_app'],
-                  is_active: true,
-                  last_triggered: '없음',
-                }]);
-                setShowForm(false);
-                setNewAlert({ name: '', source: 'email', keyword: '' });
-              }}>저장</Button>
+              <Button size="sm" onClick={createAlert} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                저장
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -134,8 +220,8 @@ export default function AlertsPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: '활성 규칙', value: alerts.filter(a => a.is_active).length, color: 'text-primary' },
-          { label: '오늘 발생', value: 12, color: 'text-green-600' },
-          { label: '이번 주 발생', value: 47, color: 'text-blue-600' },
+          { label: '전체 규칙', value: alerts.length, color: 'text-green-600' },
+          { label: '비활성 규칙', value: alerts.filter(a => !a.is_active).length, color: 'text-blue-600' },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4 text-center">
@@ -148,12 +234,21 @@ export default function AlertsPage() {
 
       {/* 알림 목록 */}
       <div className="space-y-3">
+        {alerts.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center text-slate-500">
+              <Bell className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+              <p className="font-semibold">알림 규칙이 없습니다</p>
+              <p className="text-sm mt-1">위의 &quot;알림 규칙 추가&quot; 버튼으로 새 규칙을 만들어 보세요</p>
+            </CardContent>
+          </Card>
+        )}
         {alerts.map((alert) => (
           <Card key={alert.id} className={`transition-all ${!alert.is_active ? 'opacity-60' : ''}`}>
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${alert.is_active ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                  {SOURCE_ICONS[alert.source]}
+                  {SOURCE_ICONS[alert.source] ?? <Bell className="w-4 h-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -163,16 +258,16 @@ export default function AlertsPage() {
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span>조건: {alert.conditions[0]?.value}</span>
+                    <span>조건: {formatConditions(alert.conditions)}</span>
                     <span>·</span>
-                    <span>채널: {alert.channels.join(', ')}</span>
+                    <span>채널: {formatChannels(alert.channels)}</span>
                     <span>·</span>
-                    <span>마지막 발생: {alert.last_triggered}</span>
+                    <span>마지막 발생: {formatLastTriggered(alert.last_triggered_at)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => toggleAlert(alert.id)}
+                    onClick={() => toggleAlert(alert.id, alert.is_active)}
                     className={`relative w-11 h-6 rounded-full transition-colors ${alert.is_active ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'}`}
                   >
                     <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${alert.is_active ? 'translate-x-5' : ''}`} />

@@ -36,6 +36,12 @@ AutoPilot은 **이메일 AI 분석 + 워크플로우 자동화 + 문서 생성**
 | 기능 | AutoPilot | Superhuman | SaneBox | Zapier |
 |------|-----------|-----------|---------|--------|
 | AI 이메일 분석 | ✅ | ✅ | ✅ | ❌ |
+| Split Inbox (카테고리 분리) | ✅ | ✅ | ✅ | ❌ |
+| Instant Reply (즉시 답장 3종) | ✅ | ✅ | ❌ | ❌ |
+| Command Palette (⌘K) | ✅ | ✅ | ❌ | ❌ |
+| 발신자 차단 (BlackHole) | ✅ | ❌ | ✅ | ❌ |
+| Focus Mode / DND | ✅ | ❌ | ✅ | ❌ |
+| 키보드 단축키 (12종) | ✅ | ✅ | ❌ | ❌ |
 | 워크플로우 자동화 | ✅ | ❌ | ❌ | ✅ |
 | 문서 AI 생성 | ✅ | ❌ | ❌ | ❌ |
 | BYOK (내 API 키 사용) | ✅ | ❌ | ❌ | ❌ |
@@ -47,16 +53,24 @@ AutoPilot은 **이메일 AI 분석 + 워크플로우 자동화 + 문서 생성**
 
 ## 핵심 기능
 
-### 1. AI 이메일 인박스
+### 1. AI 이메일 인박스 (Superhuman + SaneBox 급)
 
 이메일을 연동하면 AI가 자동으로 분류·분석합니다.
 
+- **Split Inbox**: 이메일을 중요 / 팀 / VIP / 뉴스레터 / 알림으로 자동 분류 (Superhuman 스타일)
 - **우선순위 분류**: `urgent` / `important` / `normal` / `spam` 4단계
 - **AI 요약**: 이메일 본문을 3줄 이내로 요약
 - **액션 아이템 추출**: 답장 필요, 회의 수락 등 해야 할 일을 리스트로 추출
-- **답장 초안 생성**: 클릭 한 번으로 비즈니스 답장 초안 작성
-- **스누즈**: 나중에 다시 볼 이메일은 시간을 설정해 일시 보관
+- **Instant Reply (즉시 답장 3종)**: 정중한 / 친근한 / 간결한 3가지 톤의 답장을 AI가 즉시 생성
+- **답장 초안 생성**: 클릭 한 번으로 상세 비즈니스 답장 초안 작성
+- **스누즈**: 1시간 후 / 3시간 후 / 오늘 저녁 / 내일 오전 / 다음 주 중 선택
+- **별표 (Star)**: 중요 이메일을 별표로 즐겨찾기
+- **발신자 차단**: 스팸 발신자를 원클릭 차단 (SaneBox BlackHole 방식)
+- **Focus Mode**: 긴급/중요 이메일만 표시하는 집중 모드 (DND)
+- **Inbox Zero**: 모든 이메일 처리 시 축하 화면 표시
 - **스니펫**: 자주 쓰는 답장 문구를 `/thanks`, `/accept` 등 단축키로 저장
+- **키보드 단축키 12종**: `j/k` 이동, `r` 답장, `i` 즉시 답장, `x` 별표, `b` 차단, `s` 스누즈, `e/u` 읽음 등
+- **이메일 리마인더**: 팔로업이 필요한 이메일에 리마인더 설정
 
 ### 2. 워크플로우 자동화
 
@@ -183,9 +197,15 @@ autopilot/
 │   │   │   ├── inbox/
 │   │   │   │   ├── analyze/           # 이메일 AI 분석 (우선순위 + 요약)
 │   │   │   │   ├── draft/             # 답장 초안 생성
+│   │   │   │   ├── instant-replies/   # AI 즉시 답장 3종 (Superhuman 스타일)
 │   │   │   │   ├── read/              # 읽음 처리
 │   │   │   │   ├── snooze/            # 스누즈 설정
+│   │   │   │   ├── star/              # 별표 토글
+│   │   │   │   ├── block-sender/      # 발신자 차단 (SaneBox BlackHole)
+│   │   │   │   ├── remind/            # 이메일 리마인더
+│   │   │   │   ├── stats/             # 인박스 통계
 │   │   │   │   └── snippets/          # 스니펫 CRUD
+│   │   │   ├── alerts/                 # 스마트 알림 규칙 CRUD
 │   │   │   ├── automations/
 │   │   │   │   └── parse/             # 자연어 → 자동화 파싱
 │   │   │   ├── documents/
@@ -205,7 +225,8 @@ autopilot/
 │   │   │   │   └── email-digest/      # 이메일 다이제스트 크론
 │   │   │   ├── notifications/         # 알림 피드 조회
 │   │   │   └── user/
-│   │   │       └── delete/            # 회원 탈퇴
+│   │   │       ├── delete/            # 회원 탈퇴
+│   │   │       └── focus-mode/        # 집중 모드 토글
 │   │   │
 │   │   └── page.tsx                   # 랜딩 페이지
 │   │
@@ -215,8 +236,10 @@ autopilot/
 │   │   │   ├── Header.tsx             # 상단 헤더 + 알림센터
 │   │   │   ├── Sidebar.tsx            # 좌측 네비게이션
 │   │   │   └── NotificationCenter.tsx
-│   │   └── ai-chat/
-│   │       └── AIChatWidget.tsx       # 플로팅 AI 챗 위젯
+│   │   ├── ai-chat/
+│   │   │   └── AIChatWidget.tsx       # 플로팅 AI 챗 위젯
+│   │   └── layout/
+│   │       └── CommandPalette.tsx      # ⌘K 커맨드 팔레트 (Superhuman 스타일)
 │   │
 │   ├── lib/
 │   │   ├── ai/
@@ -341,14 +364,21 @@ curl -X POST https://autopilot.kr/api/webhooks/receive/{YOUR_USER_ID} \
 |--------|------|------|------|
 | POST | `/api/inbox/analyze` | 이메일 AI 분석 (최대 10개) | 필요 |
 | POST | `/api/inbox/draft` | 답장 초안 생성 | 필요 |
+| POST | `/api/inbox/instant-replies` | AI 즉시 답장 3종 생성 (정중/친근/간결) | 필요 |
 | POST | `/api/inbox/read` | 읽음/안읽음 토글 | 필요 |
 | POST | `/api/inbox/snooze` | 이메일 스누즈 설정 | 필요 |
+| POST | `/api/inbox/star` | 이메일 별표 토글 | 필요 |
+| GET/POST/DELETE | `/api/inbox/block-sender` | 발신자 차단/해제/목록 조회 | 필요 |
+| POST/GET | `/api/inbox/remind` | 이메일 리마인더 설정/조회 | 필요 |
+| GET | `/api/inbox/stats` | 인박스 통계 (카테고리, 우선순위, 볼륨) | 필요 |
 | GET/POST/DELETE | `/api/inbox/snippets` | 스니펫 조회/생성/삭제 | 필요 |
+| GET/POST/PUT/DELETE | `/api/alerts` | 스마트 알림 규칙 CRUD | 필요 |
 | POST | `/api/automations/parse` | 자연어 → 자동화 파싱 | 필요 |
 | POST | `/api/documents/generate` | AI 문서 생성 | 필요 |
 | POST | `/api/ai/chat` | AI 채팅 | 필요 |
 | POST | `/api/ai/settings` | AI 모드/키 설정 | 필요 |
 | POST | `/api/ai/validate-key` | API 키 유효성 검사 | 필요 |
+| POST | `/api/user/focus-mode` | 집중 모드 / DND 토글 | 필요 |
 | POST | `/api/billing/subscribe` | 구독 시작 | 필요 |
 | GET | `/api/billing/success` | 빌링키 발급 콜백 | 토스 리다이렉트 |
 | GET | `/api/notifications` | 알림 피드 조회 | 필요 |
@@ -398,9 +428,9 @@ npm run build
 
 이 파일 하나로 다음이 모두 설정됩니다:
 
-- 전체 테이블 스키마 (13개 테이블)
+- 전체 테이블 스키마 (15개 테이블)
 - Row Level Security (RLS) 정책 — 사용자는 자신의 데이터만 접근 가능
-- 인덱스 최적화 (10개)
+- 인덱스 최적화 (14개)
 - 신규 사용자 자동 프로필 생성 트리거
 - `updated_at` 자동 갱신 트리거
 
@@ -408,18 +438,20 @@ npm run build
 
 | 테이블 | 설명 |
 |--------|------|
-| `user_profiles` | 사용자 프로필, 플랜, AI 크레딧, 웹훅 시크릿 |
+| `user_profiles` | 사용자 프로필, 플랜, AI 크레딧, 집중 모드, 웹훅 시크릿 |
 | `user_api_keys` | BYOK용 API 키 (AES-256 암호화) |
 | `automations` | 자동화 규칙 (노드/엣지 JSONB) |
 | `automation_logs` | 자동화 실행 기록 |
-| `email_items` | 수신 이메일 + AI 분석 결과 |
+| `email_items` | 수신 이메일 + AI 분석 + 카테고리 + 별표 |
 | `email_snippets` | 이메일 스니펫 템플릿 |
+| `email_reminders` | 이메일 팔로업 리마인더 |
+| `blocked_senders` | 차단된 발신자 목록 |
 | `documents` | AI 생성 문서 |
 | `subscriptions` | 구독 정보 + 토스 빌링키 (암호화) |
 | `billing_history` | 결제 이력 |
 | `ai_usage_logs` | AI 사용량 로그 (비용 추적) |
 | `connected_services` | Gmail, Slack 등 OAuth 연결 정보 |
-| `alerts` | 알림 규칙 |
+| `alerts` | 스마트 알림 규칙 |
 | `email_classifications` | AI 분류 피드백 (학습 데이터) |
 
 ---
